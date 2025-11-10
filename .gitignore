@@ -1,0 +1,37 @@
+# ------------------------------------
+# 1. ENTORNO VIRTUAL Y CACHÉ DE PYTHON
+# ------------------------------------
+# Excluye los directorios del entorno virtual
+.venv/
+venv/
+env/
+
+# Archivos compilados y caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ------------------------------------
+# 2. INSTALADORES Y ARCHIVOS TEMPORALES
+# ------------------------------------
+# Directorios de distribución de paquetes
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# ------------------------------------
+# 3. CARPETAS ESPECÍFICAS DEL PROYECTO
+# ------------------------------------
+# Carpetas que no deben subirse al repositorio
+cbo_dependencias/
+dependencias_divididas/
+dependencias_participacion/
+
+# ------------------------------------
+# 4. DATOS SENSIBLES / DOCUMENTOS ESPECÍFICOS
+# ------------------------------------
+# Archivos de datos sensibles (Excel, bases de datos)
+Registro simplificado de participaciones en instancias externas.xlxs
+*.sqlite3
+*.db
