@@ -59,5 +59,243 @@
     "Objetivos de Desarrollo Sostenible (ODS) que Apoya la Actividad\n(Indique cuáles de los Objetivos de Desarrollo Sostenible (ODS) están directamente relacionados con su participación en esta Mesa)",
     "¿Qué aprendizajes o retroalimentación relevante ha obtenido la universidad a través de su participación en esta instancia?",
     "¿Desea adjuntar documentos o evidencia de su participación?"
+  ],
+  "columnas_nuevas": [
+    {
+      "index": 0,
+      "value": "Id"
+    },
+    {
+      "index": 1,
+      "value": "Hora de inicio"
+    },
+    {
+      "index": 2,
+      "value": "Hora de finalización"
+    },
+    {
+      "index": 3,
+      "value": "Correo electrónico"
+    },
+    {
+      "index": 4,
+      "value": "Nombre correo"
+    },
+    {
+      "index": 5,
+      "value": "Nombre"
+    },
+    {
+      "index": 6,
+      "value": "Género"
+    },
+    {
+      "index": 7,
+      "value": "Sexo"
+    },
+    {
+      "index": 8,
+      "value": "Dependencia"
+    },
+    {
+      "index": 9,
+      "value": "Unidad No Académica"
+    },
+    {
+      "index": 10,
+      "value": "Programa de Magíster"
+    },
+    {
+      "index": 11,
+      "value": "Núcleos de Investigación"
+    },
+    {
+      "index": 12,
+      "value": "Centros de Investigación"
+    },
+    {
+      "index": 13,
+      "value": "Programa de Doctorado"
+    },
+    {
+      "index": 14,
+      "value": "Escuela/Carrera Facultad de Ciencias Sociales y Artes"
+    },
+    {
+      "index": 15,
+      "value": "Escuela/Carrera Facultad de Ciencias, Ingeniería y Tecnología"
+    },
+    {
+      "index": 16,
+      "value": "Escuela/Carrera Medicina y Ciencias de la Salud"
+    },
+    {
+      "index": 17,
+      "value": "Especialidad Odontológica"
+    },
+    {
+      "index": 18,
+      "value": "Especialidad Médica"
+    },
+    {
+      "index": 19,
+      "value": "Sede a la que Pertenece"
+    },
+    {
+      "index": 20,
+      "value": "Tipo de Participación"
+    },
+    {
+      "index": 21,
+      "value": "Tipo de actividad Alumni"
+    },
+    {
+      "index": 22,
+      "value": "Año(s) de realización actividad Alumni"
+    },
+    {
+      "index": 23,
+      "value": "Descripción de la actividad"
+    },
+    {
+      "index": 24,
+      "value": "Cantidad estimada de participantes"
+    },
+    {
+      "index": 25,
+      "value": "Actor externo o institucional involucrado"
+    },
+    {
+      "index": 26,
+      "value": "Nombre de la Mesa de Trabajo Extrauniversitaria"
+    },
+    {
+      "index": 27,
+      "value": "Nombre del Actor Externo que Convoca la Mesa de Trabajo Extrauniversitaria"
+    },
+    {
+      "index": 28,
+      "value": "Describa su participación en la Mesa de Trabajo Extrauniversitaria"
+    },
+    {
+      "index": 29,
+      "value": "Nombre del Congreso, Seminario o Coloquio"
+    },
+    {
+      "index": 30,
+      "value": "Modalidad de Participación"
+    },
+    {
+      "index": 31,
+      "value": "Entidad Organizadora"
+    },
+    {
+      "index": 32,
+      "value": "N° Estudiantes participantes (HOMBRES)"
+    },
+    {
+      "index": 33,
+      "value": "N° Estudiantes participantes (MUJERES)"
+    },
+    {
+      "index": 34,
+      "value": "N° docentes participantes (HOMBRES)"
+    },
+    {
+      "index": 35,
+      "value": "N° docentes participantes (MUJERES)"
+    },
+    {
+      "index": 36,
+      "value": "Nombre del programa de corta duración"
+    },
+    {
+      "index": 37,
+      "value": "Nombre de la institución anfitriona"
+    },
+    {
+      "index": 38,
+      "value": "Objetivo de la pasantía/estancia"
+    },
+    {
+      "index": 39,
+      "value": "Nombre del académico/a visitante"
+    },
+    {
+      "index": 40,
+      "value": "Institución de origen"
+    },
+    {
+      "index": 41,
+      "value": "País"
+    },
+    {
+      "index": 42,
+      "value": "Ciudad"
+    },
+    {
+      "index": 43,
+      "value": "Fecha de inicio de participación en la actividad"
+    },
+    {
+      "index": 44,
+      "value": "Fecha de término de participación en la actividad"
+    },
+    {
+      "index": 45,
+      "value": "Nombre de la actividad o salida a terreno"
+    },
+    {
+      "index": 46,
+      "value": "Año de realización de la actividad"
+    },
+    {
+      "index": 47,
+      "value": "Ciudad donde se realizó la actividad"
+    },
+    {
+      "index": 48,
+      "value": "País donde se realizó la actividad"
+    },
+    {
+      "index": 49,
+      "value": "Objetivo o propósito de la actividad"
+    },
+    {
+      "index": 50,
+      "value": "Asignatura(s) asociada(s)"
+    },
+    {
+      "index": 51,
+      "value": "Docente responsable de la actividad"
+    },
+    {
+      "index": 52,
+      "value": "Nombre y tipo de actor externo involucrado"
+    },
+    {
+      "index": 53,
+      "value": "N° Estudiantes participantes en la salida (HOMBRES)"
+    },
+    {
+      "index": 54,
+      "value": "N° Estudiantes participantes en la salida (MUJERES)"
+    },
+    {
+      "index": 55,
+      "value": "Ámbitos Estratégicos que Aborda la Actividad"
+    },
+    {
+      "index": 56,
+      "value": "Objetivos de Desarrollo Sostenible (ODS) que Apoya la Actividad"
+    },
+    {
+      "index": 57,
+      "value": "Retroalimentación"
+    },
+    {
+      "index": 58,
+      "value": "Documentos"
+    }
   ]
 }
