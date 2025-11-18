@@ -5,8 +5,8 @@ import os
 import sys
 from io import StringIO
 
-import app.controladores as controlador
-from scripts.graficos import generar_graficos_y_pdfs
+import controladores as controlador
+from scripts.instancias_externas.graficos import generar_graficos_y_pdfs
 
 from ui.ventana_modo import VentanaModoDivision
 from ui.ventana_dependencias import VentanaSeleccionDependencias
@@ -30,6 +30,7 @@ class RedirectPrint:
     def flush(self):
         pass
 
+
 class AppGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -38,18 +39,53 @@ class AppGUI(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.title("Zodiac: Validador y Procesador de Archivo Excel")
-        self.geometry("580x480")
+        self.geometry("580x520")
 
+        # ---------------------------------------------
+        # 🔵 Selector de TIPO DE FORMULARIO
+        # ---------------------------------------------
+        self.label_tipo = ctk.CTkLabel(self, text="Seleccione el tipo de formulario:", font=("Arial", 15))
+        self.label_tipo.pack(pady=(10, 5))
+
+        self.tipo_formulario = ctk.StringVar(value="")  # ⚠ Comienza vacío
+
+        self.selector_formulario = ctk.CTkSegmentedButton(
+            self,
+            values=[
+                "Formulario de Participaciones en Instancias Externas",
+                "Formulario de Iniciativas VcM"
+            ],
+            variable=self.tipo_formulario,
+            command=self.mostrar_mensaje_formulario
+        )
+        self.selector_formulario.pack(pady=5)
+
+        self.mensaje_formulario = ctk.CTkLabel(self, text="", font=("Arial", 12), text_color="green")
+        self.mensaje_formulario.pack(pady=(5, 15))
+
+        # ---------------------------------------------
+        # Selección de archivo Excel
+        # ---------------------------------------------
         self.label = ctk.CTkLabel(self, text="Selecciona un archivo Excel", font=("Arial", 16))
-        self.label.pack(pady=20)
+        self.label.pack(pady=10)
 
-        self.btn_seleccionar = ctk.CTkButton(self, text="📂 Seleccionar Excel", command=self.seleccionar_archivo)
+        self.btn_seleccionar = ctk.CTkButton(
+            self,
+            text="📂 Seleccionar Excel",
+            command=self.seleccionar_archivo,
+            state="disabled"      # 🔒 Bloqueado hasta elegir formulario
+        )
         self.btn_seleccionar.pack(pady=10)
 
         self.label_ruta = ctk.CTkLabel(self, text="", font=("Arial", 12))
         self.label_ruta.pack(pady=10)
 
-        self.btn_procesar = ctk.CTkButton(self, text="⚙️ Procesar Excel", command=self.abrir_modo_division, state="disabled")
+        self.btn_procesar = ctk.CTkButton(
+            self,
+            text="⚙️ Procesar Excel",
+            command=self.abrir_modo_division,
+            state="disabled"      # 🔒 Solo si Excel válido
+        )
         self.btn_procesar.pack(pady=10)
 
         self.label_resultado = ctk.CTkLabel(self, text="", font=("Arial", 13))
@@ -57,8 +93,25 @@ class AppGUI(ctk.CTk):
 
         self.init_consola()
 
+        # Variables internas
         self.ruta_archivo = None
-        self.dfs_sub = None
+        self.df_validado = None  # ⚠️ Aquí guardamos el DF que entrega validar_excel
+
+    # ---------------------------------------------------------
+    # Mensaje del formulario seleccionado
+    # ---------------------------------------------------------
+    def mostrar_mensaje_formulario(self, seleccion):
+        if seleccion == "Formulario de Participaciones en Instancias Externas":
+            msg = ("Importe los datos del formulario 'Registro simplificado de participaciones "
+                   "en instancias externas' extraídos de Microsoft Form")
+        else:
+            msg = ("Importe los datos de 'Iniciativas VcM' y 'Síntesis evaluativa de Iniciativas VcM' "
+                   "extraídos de VForm")
+
+        self.mensaje_formulario.configure(text=msg)
+
+        # 🔓 Activa botón Seleccionar Excel
+        self.btn_seleccionar.configure(state="normal")
 
     # ---------------------------------------------------------
     # 📂 Seleccionar archivo Excel
@@ -70,27 +123,37 @@ class AppGUI(ctk.CTk):
 
         self.ruta_archivo = ruta
         self.label_ruta.configure(text=ruta)
+
         self.label_resultado.configure(text="⏳ Validando archivo...", text_color="orange")
         self.update_idletasks()
 
-        if controlador.validar_excel(ruta):
+        tipo = self.tipo_formulario.get()  # <- el texto seleccionado del combobox
+        valido, df = controlador.validar_archivo_formulario(ruta, tipo)
+
+        if valido:
+            self.df_validado = df  # ✔ Guardamos el DF
             self.label_resultado.configure(text="✅ Archivo válido y listo para procesar.", text_color="green")
             self.btn_procesar.configure(state="normal")
         else:
+            self.df_validado = None
             self.label_resultado.configure(text="❌ Archivo inválido o columnas incompletas.", text_color="red")
             self.btn_procesar.configure(state="disabled")
 
     # ---------------------------------------------------------
-    # ⚙️ Seleccionar modo de división
+    # ⚙️ Selección modo (dependencias / subdependencias)
     # ---------------------------------------------------------
     def abrir_modo_division(self):
+        if self.df_validado is None:
+            self.label_resultado.configure(text="❌ No hay archivo válido cargado.", text_color="red")
+            return
+
         VentanaModoDivision(self, self.procesar_segun_modo)
 
     # ---------------------------------------------------------
-    # 🧩 Procesar según modo (dependencias o subdependencias)
+    # 🎯 PROCESAR usando DF validado
     # ---------------------------------------------------------
     def procesar_segun_modo(self, modo):
-        if not self.ruta_archivo:
+        if self.df_validado is None:
             return
 
         ruta_salida_base = filedialog.askdirectory(title="Selecciona carpeta base para exportar")
@@ -98,22 +161,45 @@ class AppGUI(ctk.CTk):
             self.label_resultado.configure(text="⚠️ Exportación cancelada.", text_color="orange")
             return
 
-        df = controlador.transformar_excel(self.ruta_archivo)
+        df = self.df_validado  # ✔ Ya no volvemos a cargar Excel
+        tipo = self.tipo_formulario.get()
 
-        if modo == "dependencias":
-            dependencias = controlador.get_dependencias(df)
+        if tipo == "Formulario de Participaciones en Instancias Externas":
+
+            if modo == "dependencias":
+                dependencias = controlador.get_dependencias(df)
+                VentanaSeleccionDependencias(
+                    self,
+                    dependencias,
+                    lambda seleccion: self.exportar_dependencias(df, seleccion, ruta_salida_base)
+                )
+
+            else:  # subdependencias
+                subdependencias = controlador.get_subdependencias(df)
+                VentanaSeleccionJerarquica(
+                    self,
+                    subdependencias,
+                    lambda seleccion: self.exportar_subdependencias(df, seleccion, ruta_salida_base)
+                )
+
+        # ------------------------------------------------------
+        # 🟣 FORMULARIO VFORM (INICIATIVAS VcM)
+        # ------------------------------------------------------
+        elif tipo == "Formulario de Iniciativas VcM":
+
+            if modo != "dependencias":
+                self.label_resultado.configure(
+                    text="⚠️ Iniciativas VcM no usa subdependencias.", text_color="orange"
+                )
+                return
+
+            # Aquí usamos las funciones exclusivas VFORM
+            dependencias_vform = controlador.get_dependencias_vform(df)
+
             VentanaSeleccionDependencias(
                 self,
-                dependencias,
-                lambda seleccion: self.exportar_dependencias(df, seleccion, ruta_salida_base)
-            )
-        else:
-            subdependencias = controlador.get_subdependencias(df)
-
-            VentanaSeleccionJerarquica(
-                self,
-                subdependencias,
-                lambda seleccion: self.exportar_subdependencias(df, seleccion, ruta_salida_base)
+                dependencias_vform,
+                lambda seleccion: self.exportar_dependencias_vform(df, seleccion, ruta_salida_base)
             )
 
     # ---------------------------------------------------------
@@ -152,6 +238,24 @@ class AppGUI(ctk.CTk):
                 text=f"⚠️ Dependencias exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
                 text_color="orange"
             )
+
+    def exportar_dependencias_vform(self, df, seleccionadas, ruta_salida_base):
+        self.label_resultado.configure(text="⏳ Exportando dependencias VcM...", text_color="orange")
+        self.update_idletasks()
+
+        ruta_final, df_dependencias = controlador.get_excels_dependencias_vform(
+            df, ruta_salida_base, seleccionadas
+        )
+
+        if not ruta_final or not df_dependencias:
+            self.label_resultado.configure(text="❌ Error al exportar dependencias VcM.", text_color="red")
+            return
+        else:
+            self.label_resultado.configure(
+                text=f"✅ Dependencias exportadas.\n📁 Carpeta: {ruta_final}",
+                text_color="green"
+            )
+
 
     # ---------------------------------------------------------
     # 🧱 Exportar subdependencias
