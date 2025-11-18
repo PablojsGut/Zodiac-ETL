@@ -34,6 +34,9 @@ class RedirectPrint:
 class AppGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
+        self.ruta_iniciativas = None
+        self.ruta_sintesis = None
+
         self.iconbitmap(resource_path("zodiac_logo.ico"))
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
@@ -117,27 +120,102 @@ class AppGUI(ctk.CTk):
     # 📂 Seleccionar archivo Excel
     # ---------------------------------------------------------
     def seleccionar_archivo(self):
-        ruta = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
-        if not ruta:
+        tipo = self.tipo_formulario.get()
+
+        # ======================================================
+        # 🔵 FORMULARIO DE INSTANCIAS EXTERNAS -> 1 solo archivo
+        # ======================================================
+        if tipo == "Formulario de Participaciones en Instancias Externas":
+            ruta = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+            if not ruta:
+                return
+            
+            self.ruta_archivo = ruta
+            self.label_ruta.configure(text=f"📄 Archivo seleccionado:\n{ruta}", text_color="green")
+
+            self.label_resultado.configure(text="⏳ Validando archivo...", text_color="orange")
+            self.update_idletasks()
+
+            valido, df = controlador.validar_archivo_formulario(ruta, tipo)
+
+            if valido:
+                self.df_validado = df
+                self.label_resultado.configure(text="✅ Archivo válido.", text_color="green")
+                self.btn_procesar.configure(state="normal")
+            else:
+                self.df_validado = None
+                self.label_resultado.configure(text="❌ Archivo inválido.", text_color="red")
+                self.btn_procesar.configure(state="disabled")
+
             return
 
-        self.ruta_archivo = ruta
-        self.label_ruta.configure(text=ruta)
+        # ======================================================
+        # 🟣 FORMULARIO INICIATIVAS VCM -> REQUIERE 2 ARCHIVOS
+        # ======================================================
+        elif tipo == "Formulario de Iniciativas VcM":
+            # ---------- Seleccionar archivo de Iniciativas ---------
+            ruta1 = filedialog.askopenfilename(
+                title="Selecciona el archivo de Iniciativas VcM",
+                filetypes=[("Excel files", "*.xlsx")]
+            )
+            if not ruta1:
+                return
 
-        self.label_resultado.configure(text="⏳ Validando archivo...", text_color="orange")
-        self.update_idletasks()
+            self.ruta_iniciativas = ruta1
 
-        tipo = self.tipo_formulario.get()  # <- el texto seleccionado del combobox
-        valido, df = controlador.validar_archivo_formulario(ruta, tipo)
+            # ---------- Seleccionar archivo de Síntesis Evaluativa ---------
+            ruta2 = filedialog.askopenfilename(
+                title="Selecciona el archivo de Síntesis Evaluativa",
+                filetypes=[("Excel files", "*.xlsx")]
+            )
+            if not ruta2:
+                return
 
-        if valido:
-            self.df_validado = df  # ✔ Guardamos el DF
-            self.label_resultado.configure(text="✅ Archivo válido y listo para procesar.", text_color="green")
-            self.btn_procesar.configure(state="normal")
-        else:
-            self.df_validado = None
-            self.label_resultado.configure(text="❌ Archivo inválido o columnas incompletas.", text_color="red")
-            self.btn_procesar.configure(state="disabled")
+            self.ruta_sintesis = ruta2
+
+            # Mostrar ambos en el label
+            self.label_ruta.configure(text=(
+                f"📄 Iniciativas VcM:\n{ruta1}\n\n"
+                f"📄 Síntesis Evaluativa:\n{ruta2}"
+                ),
+                text_color="green"
+            )
+
+            # ============================
+            # 🔍 Validación de ambos
+            # ============================
+            self.label_resultado.configure(text="⏳ Validando archivos...", text_color="orange")
+            self.update_idletasks()
+
+            validado1, df1 = controlador.validar_archivo_formulario(ruta1, tipo, "columnas_vform1")
+            validado2, df2 = controlador.validar_archivo_formulario(ruta2, tipo, "columnas_vform2")
+
+            if validado1 and validado2:
+
+                # Guardamos AMBOS dataframes
+                self.df_iniciativas = df1
+                self.df_sintesis = df2
+
+                # También guardamos un diccionario unificado
+                self.df_validado = {
+                    "iniciativas": df1,
+                    "sintesis": df2
+                }
+
+                self.label_resultado.configure(
+                    text="✅ Ambos archivos válidos.\nListos para procesar.",
+                    text_color="green"
+                )
+                self.btn_procesar.configure(state="normal")
+
+            else:
+                self.df_validado = None
+                self.label_resultado.configure(
+                    text="❌ Error validando los archivos.\nRevise que correspondan al formulario VcM.",
+                    text_color="red"
+                )
+                self.btn_procesar.configure(state="disabled")
+
 
     # ---------------------------------------------------------
     # ⚙️ Selección modo (dependencias / subdependencias)
@@ -161,10 +239,11 @@ class AppGUI(ctk.CTk):
             self.label_resultado.configure(text="⚠️ Exportación cancelada.", text_color="orange")
             return
 
-        df = self.df_validado  # ✔ Ya no volvemos a cargar Excel
         tipo = self.tipo_formulario.get()
 
         if tipo == "Formulario de Participaciones en Instancias Externas":
+
+            df = self.df_validado
 
             if modo == "dependencias":
                 dependencias = controlador.get_dependencias(df)
@@ -193,13 +272,15 @@ class AppGUI(ctk.CTk):
                 )
                 return
 
+            df1 = self.df_validado["iniciativas"]
+            df2 = self.df_validado["sintesis"]
             # Aquí usamos las funciones exclusivas VFORM
-            dependencias_vform = controlador.get_dependencias_vform(df)
+            dependencias_vform = controlador.get_dependencias_vform(df1)
 
             VentanaSeleccionDependencias(
                 self,
                 dependencias_vform,
-                lambda seleccion: self.exportar_dependencias_vform(df, seleccion, ruta_salida_base)
+                lambda seleccion: self.exportar_dependencias_vform(df1, df2, seleccion, ruta_salida_base)
             )
 
     # ---------------------------------------------------------
@@ -239,15 +320,15 @@ class AppGUI(ctk.CTk):
                 text_color="orange"
             )
 
-    def exportar_dependencias_vform(self, df, seleccionadas, ruta_salida_base):
+    def exportar_dependencias_vform(self, df1, df2, seleccionadas, ruta_salida_base):
         self.label_resultado.configure(text="⏳ Exportando dependencias VcM...", text_color="orange")
         self.update_idletasks()
 
-        ruta_final, df_dependencias = controlador.get_excels_dependencias_vform(
-            df, ruta_salida_base, seleccionadas
+        ruta_final, df1_dependencias, df2_dependencias = controlador.get_excels_dependencias_vform(
+            df1, df2, ruta_salida_base, seleccionadas
         )
 
-        if not ruta_final or not df_dependencias:
+        if ruta_final is None or df1_dependencias is None or df2_dependencias is None:
             self.label_resultado.configure(text="❌ Error al exportar dependencias VcM.", text_color="red")
             return
         else:

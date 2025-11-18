@@ -44,7 +44,7 @@ def ctr_validar_excel_vform(ruta_excel: str, columnas_vform: str):
         print(f"❌ Error al transformar Excel: {e}")
         return False, None
     
-def validar_archivo_formulario(ruta_excel: str, tipo_formulario: str):
+def validar_archivo_formulario(ruta_excel: str, tipo_formulario: str, tipo_columns = None):
     """
     Decide qué validador usar según el tipo de formulario seleccionado.
     Retorna: (bool, DataFrame)
@@ -56,7 +56,7 @@ def validar_archivo_formulario(ruta_excel: str, tipo_formulario: str):
 
     elif tipo_formulario == "Formulario de Iniciativas VcM":
         # Usa validador VForm
-        return ctr_validar_excel_vform(ruta_excel, "columnas_vform1")
+        return ctr_validar_excel_vform(ruta_excel, tipo_columns)
 
     else:
         print("⚠ Tipo de formulario desconocido")
@@ -108,11 +108,11 @@ def procesar_excel_dependencias(df: pd.DataFrame, ruta_salida_base: str, selecci
         return None, None
 
 
-def get_excels_dependencias_vform(df: pd.DataFrame, ruta_salida_base: str, seleccionadas: list = None):
+def get_excels_dependencias_vform(df1: pd.DataFrame, df2: pd.DataFrame, ruta_salida_base: str, seleccionadas: list = None):
     """Procesa el Excel y exporta los archivos en una subcarpeta dentro de la carpeta seleccionada."""
     try:
         print("📊 Dividiendo por dependencias...")
-        dfs = dividir_dependencias_vform(df)
+        dfs1 = dividir_dependencias_vform(df1)
 
         # 🗂️ Crear carpeta de salida
         fecha = datetime.now().strftime("%Y-%m-%d")
@@ -120,13 +120,13 @@ def get_excels_dependencias_vform(df: pd.DataFrame, ruta_salida_base: str, selec
         os.makedirs(ruta_salida_final, exist_ok=True)
 
         print(f"💾 Exportando dependencias en: {ruta_salida_final}")
-        exportar_dependencias_vform(dfs, ruta_salida_final, seleccionadas=seleccionadas)
+        dfs2 = exportar_dependencias_vform(dfs1, df2, ruta_salida_final, seleccionadas=seleccionadas)
 
         print("\n✅ Proceso ETL completado con éxito.")
-        return ruta_salida_final, dfs
+        return ruta_salida_final, dfs1, dfs2
     except Exception as e:
         print(f"❌ Error durante el proceso ETL: {e}")
-        return None, None
+        return None, None, None
 
 # -------------------------------------------------------------
 # 🚀 Procesar por subdependencias
