@@ -3,32 +3,33 @@ import pandas as pd
 
 def obtener_dependencias_vform(df: pd.DataFrame, col_index: int = 13):
     """
-    Devuelve una lista de dependencias encontradas en el DataFrame.
-
-    Esta función asume que la columna de interés (Dependencia) se encuentra
-    en el índice 8 del DataFrame.
-
-    :param df: El DataFrame de pandas de entrada.
-    :return: Una lista de strings que contiene los valores únicos y ordenados
-             de la columna de Dependencia, excluyendo los valores nulos (NaN).
+    Devuelve una lista de dependencias encontradas en el DataFrame,
+    reemplazando cualquier valor vacío o NaN por 'EN BLANCO'.
     """
-    # 1. Identificar la columna:
-    # Obtiene el nombre real de la columna usando su índice (posición 8).
-    col_dependencia = df.columns[col_index]
-    
-    # 2. Extraer y limpiar los valores únicos:
-    # df[col_dependencia]: Selecciona la Serie (columna) de Dependencia.
-    # .dropna(): Elimina cualquier valor nulo (NaN) de esa Serie.
-    # .unique(): Devuelve un array de NumPy con todos los valores únicos que quedan.
-    # .tolist(): Convierte el array de NumPy en una lista estándar de Python.
-    list_dependencias = df[col_dependencia].dropna().unique().tolist()
-    
-    # 3. Ordenar la lista:
-    # sorted(...) ordena alfabéticamente la lista de dependencias resultante.
-    list_dependencias = sorted(list_dependencias)
-    
-    # 4. Retorno:
-    return list_dependencias
+
+    # 1️⃣ Obtener la columna por índice
+    nombre_col = df.columns[col_index]
+
+    # 2️⃣ Procesar la columna para eliminar NaN, espacios y vacíos
+    serie = (
+        df[nombre_col]
+        .astype(str)              # Convertir todo a string
+        .replace("nan", "")       # Evitar que 'nan' quede como string
+        .fillna("")               # Reemplazar NaN reales
+        .str.strip()              # Quitar espacios
+        .replace("", "EN BLANCO") # Reemplazar vacíos
+    )
+
+    # 3️⃣ Obtener valores únicos ordenados
+    dependencias = sorted(set(serie.tolist()))
+
+    # 4️⃣ Asegurar que "EN BLANCO" esté presente (y primero en la lista)
+    if "EN BLANCO" in dependencias:
+        dependencias.remove("EN BLANCO")
+    dependencias.insert(0, "EN BLANCO")
+
+    return dependencias
+
 
 def dividir_dependencias_vform(df: pd.DataFrame, col_dependencia: str = "Unidad o Dependencia Responsable"):
     """
@@ -80,13 +81,17 @@ def dividir_dependencias_vform(df: pd.DataFrame, col_dependencia: str = "Unidad 
 
 def exportar_dependencias_vform(dfs1, df2, ruta_salida, seleccionadas=None):
     """
-    Exporta:
-      - dfs1 dividido por dependencia → estado
-      - df2 filtrado por ID de cada dependencia → estado
-        (los excels de df2 van dentro de la misma carpeta de la dependencia)
+    Exporta UN SOLO EXCEL por dependencia con las hojas:
+
+    - "Iniciativas"                         → df1 completo
+    - "Sintesis Evaluativa"                 → df2 filtrado completo
+    - "Iniciativas (ESTADO)"                → df1 por estado
+    - "Sintesis Evaluativa (ESTADO)"        → df2 por estado
+
+    Guarda los archivos directamente en `ruta_salida` sin crear carpetas.
 
     Retorna:
-        dict_df2_filtrados = { dependencia : df2_filtrado_por_dependencia }
+        dict_df2_filtrados = { dependencia : df2_filtrado }
     """
 
     os.makedirs(ruta_salida, exist_ok=True)
@@ -95,69 +100,81 @@ def exportar_dependencias_vform(dfs1, df2, ruta_salida, seleccionadas=None):
     if seleccionadas is not None:
         dfs1 = {k: v for k, v in dfs1.items() if k in seleccionadas}
 
-    # Sanitizar nombres
+    # Sanitizador
     def sanitizar(nombre):
         for c in r'\/:*?"<>|':
             nombre = nombre.replace(c, "_")
-        return nombre.strip()
+        return str(nombre).strip()
 
-    # Validación básica
+    # Validación
     if "ID" not in df2.columns:
         print("❌ df2 no contiene columna 'ID'.")
         return None
 
+    logs = []
     dict_df2_filtrados = {}
 
     # ======================================================
     # 🔁 PROCESAR CADA DEPENDENCIA
     # ======================================================
-    for nombre_dep, df1_dep in dfs1.items():
+    for dependencia, df1_dep in dfs1.items():
 
-        carpeta_dep = sanitizar(nombre_dep)
-        ruta_dep = os.path.join(ruta_salida, carpeta_dep)
-        os.makedirs(ruta_dep, exist_ok=True)
+        dep_sanit = sanitizar(dependencia)
 
-        # ----------------------------------------------
-        # 1️⃣ Exportar df1 por estado
-        # ----------------------------------------------
-        if "Estado" in df1_dep.columns:
-            for estado in df1_dep["Estado"].dropna().unique():
+        logs.append(f"📌 Procesando dependencia: {dependencia}")
 
-                df1_estado = df1_dep[df1_dep["Estado"] == estado]
-                estado_sanit = sanitizar(str(estado))
-
-                archivo = f"Iniciativas ({estado_sanit}) - {carpeta_dep}.xlsx"
-                df1_estado.to_excel(os.path.join(ruta_dep, archivo), index=False)
-
-        # ----------------------------------------------
-        # 2️⃣ Filtrar df2 solo con IDs de esta dependencia
-        # ----------------------------------------------
+        # -------------------------------------------------------
+        # 1️⃣ Filtrar df2 según los IDs de esta dependencia
+        # -------------------------------------------------------
         if "ID" not in df1_dep.columns:
-            print(f"⚠ '{nombre_dep}' no tiene columna ID en df1.")
-            continue
+            logs.append(f"⚠ '{dependencia}' no tiene columna 'ID' en df1. Saltando df2.")
+            df2_dep = pd.DataFrame()
+        else:
+            ids_dep = df1_dep["ID"].dropna().unique()
+            df2_dep = df2[df2["ID"].isin(ids_dep)].copy()
 
-        ids_dep = df1_dep["ID"].dropna().unique()
-        df2_dep = df2[df2["ID"].isin(ids_dep)].copy()
+        dict_df2_filtrados[dependencia] = df2_dep
 
-        dict_df2_filtrados[nombre_dep] = df2_dep  # ← Guardamos el filtrado de df2
+        # -------------------------------------------------------
+        # 2️⃣ Crear EXCEL único con todas las hojas
+        # -------------------------------------------------------
+        archivo_excel = os.path.join(ruta_salida, f"{dep_sanit}.xlsx")
 
-        # ----------------------------------------------
-        # 3️⃣ Exportar df2 filtrado por estado
-        # ----------------------------------------------
-        if "Estado" in df2_dep.columns:
+        with pd.ExcelWriter(archivo_excel, engine="openpyxl") as writer:
 
-            for estado in df2_dep["Estado"].dropna().unique():
+            # ---------------------------
+            # 🟦 HOJA PRINCIPAL df1
+            # ---------------------------
+            df1_dep.to_excel(writer, sheet_name="Iniciativas", index=False)
 
-                df2_estado = df2_dep[df2_dep["Estado"] == estado]
-                estado_sanit = sanitizar(str(estado))
+            # ---------------------------
+            # 🟩 HOJA PRINCIPAL df2
+            # ---------------------------
+            df2_dep.to_excel(writer, sheet_name="Sintesis Evaluativa", index=False)
 
-                archivo = f"Sintesis Evaluativa ({estado_sanit}) - {carpeta_dep}.xlsx"
-                df2_estado.to_excel(os.path.join(ruta_dep, archivo), index=False)
+            # ---------------------------
+            # 🟦 Hojas por estado df1
+            # ---------------------------
+            if "Estado" in df1_dep.columns:
+                for estado in df1_dep["Estado"].dropna().unique():
+                    df_estado = df1_dep[df1_dep["Estado"] == estado]
+                    hoja = f"Iniciativas ({sanitizar(str(estado))})"
+                    df_estado.to_excel(writer, sheet_name=hoja[:31], index=False)
 
-        print(f"📁 Dependencia exportada: {nombre_dep}")
+            # ---------------------------
+            # 🟩 Hojas por estado df2
+            # ---------------------------
+            if "Estado" in df2_dep.columns:
+                for estado in df2_dep["Estado"].dropna().unique():
+                    df2_estado = df2_dep[df2_dep["Estado"] == estado]
+                    hoja = f"Sintesis Evaluativa ({sanitizar(str(estado))})"
+                    df2_estado.to_excel(writer, sheet_name=hoja[:31], index=False)
 
-    print("✅ Exportación completa (dfs1 + df2 por dependencia).")
+        logs.append(f"📁 Archivo generado: {archivo_excel}")
 
-    # Devuelve df2 filtrado por dependencia
+    logs.append("\n✅ Exportación completa (Dependencias VcM).")
+
+    # Mostrar logs
+    print("\n".join(logs))
+
     return dict_df2_filtrados
-

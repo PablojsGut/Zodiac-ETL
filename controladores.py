@@ -8,7 +8,7 @@ from scripts.instancias_externas.subdependencias import dividir_por_subdependenc
 
 from scripts.iniciativas.validar_transformar import validar_excel_vform, limpiar_columnas_vform
 from scripts.iniciativas.dependencias import obtener_dependencias_vform, dividir_dependencias_vform, exportar_dependencias_vform
-
+from scripts.iniciativas.subdependencias import dividir_subdependencias_vform, exportar_subdependencias_vform
 
 def validar_excel(ruta_excel: str):
     """
@@ -71,7 +71,6 @@ def get_dependencias_vform(df):
     return obtener_dependencias_vform(df)
 
 def get_subdependencias(df):
-    
     df_dep = dividir_por_dependencia(df)
     dfs_sub = dividir_por_subdependencia(df_dep)
 
@@ -84,6 +83,26 @@ def get_subdependencias(df):
 
     return jerarquia
 
+def get_subdependencias_vform(df):
+    diccionario_dividido = dividir_subdependencias_vform(df)
+
+    jerarquia = {}
+
+    for dependencia, valor in diccionario_dividido.items():
+
+        # Caso 1: NO tiene subdependencias → es DataFrame
+        if isinstance(valor, pd.DataFrame):
+            jerarquia[dependencia] = []
+
+        # Caso 2: SÍ tiene subdependencias → es dict
+        elif isinstance(valor, dict):
+            jerarquia[dependencia] = list(valor.keys())
+
+        # Backup
+        else:
+            jerarquia[dependencia] = []
+
+    return jerarquia
 # -------------------------------------------------------------
 # 🚀 Procesar por dependencias
 # -------------------------------------------------------------
@@ -158,3 +177,30 @@ def procesar_excel_subdependencias(df: pd.DataFrame, ruta_salida_base: str, sele
     except Exception as e:
         print(f"❌ Error durante el proceso ETL: {e}")
         return None, None
+
+def get_excels_subdependencias_vform(df1: pd.DataFrame, df2: pd.DataFrame, ruta_salida_base: str, seleccionadas: list = None):
+    """Procesa y exporta solo las subdependencias seleccionadas."""
+    try:
+        print("📊 Dividiendo por subdependencias...")
+        dfs_sub1 = dividir_subdependencias_vform(df1)
+
+        # 🗂️ Crear carpeta de salida
+        fecha = datetime.now().strftime("%Y-%m-%d")
+        ruta_salida_final = os.path.join(ruta_salida_base, f"Iniciativas (VcM) - Subdependencias {fecha}")
+        os.makedirs(ruta_salida_final, exist_ok=True)
+
+        # 🧩 Ajustar la lista de seleccionadas si viene como lista de tuplas (dep, subdep)
+        if seleccionadas and all(isinstance(s, tuple) and len(s) == 2 for s in seleccionadas):
+            seleccionadas_sub = [subdep for _, subdep in seleccionadas]
+        else:
+            seleccionadas_sub = seleccionadas
+
+        print(f"💾 Exportando dependencias en: {ruta_salida_final}")
+        dfs_sub2 = exportar_subdependencias_vform(dfs_sub1, df2, ruta_salida_final, seleccionadas=seleccionadas_sub)
+
+        print("\n✅ Proceso ETL completado con éxito.")
+        return ruta_salida_final, dfs_sub1, dfs_sub2
+
+    except Exception as e:
+        print(f"❌ Error durante el proceso ETL: {e}")
+        return None, None, None

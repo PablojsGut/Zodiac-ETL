@@ -35,12 +35,15 @@ def verificar_archivo_excel(ruta_excel: str):
     Retorna (True/False, DataFrame).
     """
 
+    log = []  # 🔵 acumulador de logs
+
     # Leer Excel
     try:
-        print("📥 Cargando archivo Excel...")
+        log.append("📥 Cargando archivo Excel...")
         df = pd.read_excel(ruta_excel)
     except Exception as e:
-        print(f"❌ Error al leer Excel: {e}")
+        log.append(f"❌ Error al leer Excel: {e}")
+        print("\n".join(log))
         return None, None
 
     # Cargar JSON
@@ -50,9 +53,9 @@ def verificar_archivo_excel(ruta_excel: str):
     columnas_archivo = [limpiar_nombre_columna(c) for c in df.columns]
     columnas_esperadas = [limpiar_nombre_columna(c) for c in data.get("columnas", [])]
 
-    print("\n📊 Comparando columnas normalizadas...")
-    print(f"👉 Columnas archivo:   {len(columnas_archivo)}")
-    print(f"👉 Columnas esperadas: {len(columnas_esperadas)}")
+    log.append("\n📊 Comparando columnas normalizadas...")
+    log.append(f"👉 Columnas archivo:   {len(columnas_archivo)}")
+    log.append(f"👉 Columnas esperadas: {len(columnas_esperadas)}")
 
     # Comparación
     set_archivo = set(columnas_archivo)
@@ -63,36 +66,39 @@ def verificar_archivo_excel(ruta_excel: str):
 
     # Reportes
     if faltantes:
-        print("\n⚠️ Columnas faltantes:")
+        log.append("\n⚠️ Columnas faltantes:")
         for col in faltantes:
-            print(f"  - {col}")
+            log.append(f"  - {col}")
 
     if extras:
-        print("\n⚠️ Columnas extras:")
+        log.append("\n⚠️ Columnas extras:")
         for col in extras:
-            print(f"  - {col}")
+            log.append(f"  - {col}")
 
     if not faltantes and not extras:
-        print("✅ Archivo válido. Todas las columnas coinciden.")
+        log.append("✅ Archivo válido. Todas las columnas coinciden.")
+        print("\n".join(log))
         return True, df
 
-    print("❌ El archivo NO cumple con la estructura esperada.")
+    log.append("❌ El archivo NO cumple con la estructura esperada.")
+    print("\n".join(log))
     return False, df
 
 
 # -----------------------------------------------------------
 # ✨ LIMPIEZA Y RENOMBRADO DE COLUMNAS
 # -----------------------------------------------------------
-
 def limpiar_y_renombrar_columnas(df: pd.DataFrame) -> pd.DataFrame:
     """
     Limpia nombres de columnas y las renombra según el JSON.
     """
 
+    log = []  # 🔵 acumulador de logs
+
     data, ruta_json = cargar_json_columnas()
     columnas_nuevas = data.get("columnas_nuevas", [])
 
-    print("🧹 Limpiando y renombrando columnas...")
+    log.append("🧹 Limpiando y renombrando columnas...")
 
     # Limpiar columnas actuales
     df.columns = [limpiar_nombre_columna(c) for c in df.columns]
@@ -106,5 +112,7 @@ def limpiar_y_renombrar_columnas(df: pd.DataFrame) -> pd.DataFrame:
 
     df.rename(columns=rename_map, inplace=True)
 
-    print(f"✅ Columnas renombradas correctamente desde {os.path.basename(ruta_json)}")
+    log.append(f"✅ Columnas renombradas correctamente desde {os.path.basename(ruta_json)}")
+
+    print("\n".join(log))  # 🔵 un solo print final
     return df

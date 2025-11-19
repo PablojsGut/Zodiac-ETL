@@ -104,6 +104,8 @@ class AppGUI(ctk.CTk):
     # Mensaje del formulario seleccionado
     # ---------------------------------------------------------
     def mostrar_mensaje_formulario(self, seleccion):
+        self.reiniciar_interfaz()
+
         if seleccion == "Formulario de Participaciones en Instancias Externas":
             msg = ("Importe los datos del formulario 'Registro simplificado de participaciones "
                    "en instancias externas' extraídos de Microsoft Form")
@@ -241,6 +243,9 @@ class AppGUI(ctk.CTk):
 
         tipo = self.tipo_formulario.get()
 
+        # =====================================================
+        # 🔵 FORMULARIO INSTANCIAS EXTERNAS
+        # =====================================================
         if tipo == "Formulario de Participaciones en Instancias Externas":
 
             df = self.df_validado
@@ -261,27 +266,38 @@ class AppGUI(ctk.CTk):
                     lambda seleccion: self.exportar_subdependencias(df, seleccion, ruta_salida_base)
                 )
 
-        # ------------------------------------------------------
-        # 🟣 FORMULARIO VFORM (INICIATIVAS VcM)
-        # ------------------------------------------------------
+        # =====================================================
+        # 🟣 FORMULARIO INICIATIVAS VcM
+        # =====================================================
         elif tipo == "Formulario de Iniciativas VcM":
-
-            if modo != "dependencias":
-                self.label_resultado.configure(
-                    text="⚠️ Iniciativas VcM no usa subdependencias.", text_color="orange"
-                )
-                return
 
             df1 = self.df_validado["iniciativas"]
             df2 = self.df_validado["sintesis"]
-            # Aquí usamos las funciones exclusivas VFORM
-            dependencias_vform = controlador.get_dependencias_vform(df1)
 
-            VentanaSeleccionDependencias(
-                self,
-                dependencias_vform,
-                lambda seleccion: self.exportar_dependencias_vform(df1, df2, seleccion, ruta_salida_base)
-            )
+            # ---------------------------
+            # 🔵 MODO DEPENDENCIAS VcM
+            # ---------------------------
+            if modo == "dependencias":
+                dependencias_vform = controlador.get_dependencias_vform(df1)
+
+                VentanaSeleccionDependencias(
+                    self,
+                    dependencias_vform,
+                    lambda seleccion: self.exportar_dependencias_vform(df1, df2, seleccion, ruta_salida_base)
+                )
+
+            # ---------------------------
+            # 🟣 NUEVO: MODO SUBDEPENDENCIAS VcM
+            # ---------------------------
+            elif modo == "subdependencias":
+
+                subdependencias_vform = controlador.get_subdependencias_vform(df1)
+
+                VentanaSeleccionJerarquica(
+                    self,
+                    subdependencias_vform,
+                    lambda seleccion: self.exportar_subdependencias_vform(df1, df2, seleccion, ruta_salida_base)
+                )
 
     # ---------------------------------------------------------
     # 🧱 Exportar dependencias
@@ -373,6 +389,52 @@ class AppGUI(ctk.CTk):
                 text_color="orange"
             )
 
+    def exportar_subdependencias_vform(self, df1, df2, seleccionadas, ruta_salida_base):
+        """Procesa y exporta subdependencias del formulario VcM."""
+        self.label_resultado.configure(text="⏳ Exportando subdependencias VcM...", text_color="orange")
+        self.update_idletasks()
+
+        # Llama al controlador
+        ruta_final, df1_subdependencias, df2_subdependencias = controlador.get_excels_subdependencias_vform(
+            df1, df2, ruta_salida_base, seleccionadas
+        )
+
+        # Validación
+        if ruta_final is None or df1_subdependencias is None or df2_subdependencias is None:
+            self.label_resultado.configure(text="❌ Error al exportar subdependencias VcM.", text_color="red")
+            return
+        else:
+            self.label_resultado.configure(
+                text=f"✅ Subependencias exportadas.\n📁 Carpeta: {ruta_final}",
+                text_color="green"
+            )
+
+    def reiniciar_interfaz(self):
+        """Restaura la interfaz al estado inicial, como cuando se abre la app."""
+
+        # Reset de variables internas
+        self.ruta_archivo = None
+        self.ruta_iniciativas = None
+        self.ruta_sintesis = None
+        self.df_validado = None
+
+        # Desactivar botones
+        self.btn_seleccionar.configure(state="disabled")
+        self.btn_procesar.configure(state="disabled")
+
+        # Limpiar labels
+        self.label_ruta.configure(text="", text_color="white")
+        self.label_resultado.configure(text="", text_color="white")
+        self.mensaje_formulario.configure(text="", text_color="green")
+
+        # Limpiar consola
+        self.consola_text.delete("1.0", "end")
+
+        # Cerrar consola si estaba abierta
+        if self.consola_abierta:
+            self.toggle_consola()
+
+
     def init_consola(self):
         """Crea una consola plegable para mostrar logs."""
         # Marco contenedor
@@ -423,7 +485,6 @@ class AppGUI(ctk.CTk):
         """Escribe texto en la consola visual."""
         self.consola_text.insert("end", text)
         self.consola_text.see("end")
-
 
 
 # ---------------------------------------------------------
