@@ -7,6 +7,7 @@ from io import StringIO
 
 import controladores as controlador
 from scripts.instancias_externas.graficos import generar_graficos_y_pdfs
+from scripts.iniciativas.graficos import generar_resumenes_pdf_vform
 
 from ui.ventana_modo import VentanaModoDivision
 from ui.ventana_dependencias import VentanaSeleccionDependencias
@@ -337,20 +338,49 @@ class AppGUI(ctk.CTk):
             )
 
     def exportar_dependencias_vform(self, df1, df2, seleccionadas, ruta_salida_base):
+        """
+        Exporta dependencias VcM y además genera los PDFs con resumen,
+        usando la función optimizada generar_resumenes_pdf().
+        """
+
         self.label_resultado.configure(text="⏳ Exportando dependencias VcM...", text_color="orange")
         self.update_idletasks()
 
+        # Función central del controlador (tu flujo original)
         ruta_final, df1_dependencias, df2_dependencias = controlador.get_excels_dependencias_vform(
             df1, df2, ruta_salida_base, seleccionadas
         )
 
         if ruta_final is None or df1_dependencias is None or df2_dependencias is None:
-            self.label_resultado.configure(text="❌ Error al exportar dependencias VcM.", text_color="red")
+            self.label_resultado.configure(
+                text="❌ Error al exportar dependencias VcM.",
+                text_color="red"
+            )
             return
+
+        # ==========================================================
+        # 🧾  GENERAR PDFs usando la función optimizada
+        # ==========================================================
+        pdfs_generados = generar_resumenes_pdf_vform(
+            dfs1=df1_dependencias,   # Igual que en exportar_dependencias()
+            dfs2=df2_dependencias,
+            seleccionadas=seleccionadas,
+            modo="dependencias",
+            ruta_salida=ruta_final
+        )
+
+        # ==========================================================
+        # 🟩 Resultado final (mismo estilo que exportar_dependencias)
+        # ==========================================================
+        if pdfs_generados:
+            self.label_resultado.configure(
+                text=f"✅ Dependencias VcM exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
+                text_color="green"
+            )
         else:
             self.label_resultado.configure(
-                text=f"✅ Dependencias exportadas.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
+                text=f"⚠️ Dependencias VcM exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
+                text_color="orange"
             )
 
 
