@@ -433,10 +433,27 @@ class AppGUI(ctk.CTk):
         if ruta_final is None or df1_subdependencias is None or df2_subdependencias is None:
             self.label_resultado.configure(text="❌ Error al exportar subdependencias VcM.", text_color="red")
             return
+        
+        pdfs_generados = generar_resumenes_pdf_vform(
+            dfs1=df1_subdependencias,   # Igual que en exportar_dependencias()
+            dfs2=df2_subdependencias,
+            seleccionadas=seleccionadas,
+            modo="subdependencias",
+            ruta_salida=ruta_final
+        )
+
+        # ==========================================================
+        # 🟩 Resultado final (mismo estilo que exportar_dependencias)
+        # ==========================================================
+        if pdfs_generados:
+            self.label_resultado.configure(
+                text=f"✅ Dependencias VcM exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
+                text_color="green"
+            )
         else:
             self.label_resultado.configure(
-                text=f"✅ Subependencias exportadas.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
+                text=f"⚠️ Dependencias VcM exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
+                text_color="orange"
             )
 
     def reiniciar_interfaz(self):

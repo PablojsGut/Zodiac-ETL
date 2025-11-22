@@ -701,20 +701,32 @@ def generar_resumenes_pdf_vform(dfs1, dfs2, seleccionadas, modo, ruta_salida):
         story.append(Image(buffer_resumen, width=460, height=300))
         story.append(Spacer(1, 20))
 
-        story.append(Paragraph("<b>Distribución porcentual por tipo de iniciativa</b>", styles['Heading3']))
-        story.append(Spacer(1, 8))
-        story.append(Image(buffer_barras, width=460, height=300))
-        story.append(Spacer(1, 20))
+        # === Gráfico de tipos de iniciativa ===
+        if buffer_barras:
+            story.append(Paragraph("<b>Distribución porcentual por tipo de iniciativa</b>", styles['Heading3']))
+            story.append(Spacer(1, 8))
+            story.append(Image(buffer_barras, width=460, height=300))
+            story.append(Spacer(1, 20))
+        else:
+            logs.append(f"⚠ No se pudo generar gráfico de tipos para {dependencia}/{subdependencia}.")
 
-        story.append(Paragraph("<b>Modalidad de Implementación</b>", styles['Heading3']))
-        story.append(Spacer(1, 8))
-        story.append(Image(buffer_modalidades, width=460, height=300))
-        story.append(Spacer(1, 20))
+        # === Modalidades ===
+        if buffer_modalidades:
+            story.append(Paragraph("<b>Modalidad de Implementación</b>", styles['Heading3']))
+            story.append(Spacer(1, 8))
+            story.append(Image(buffer_modalidades, width=460, height=300))
+            story.append(Spacer(1, 20))
+        else:
+            logs.append(f"⚠ No se pudo generar gráfico de modalidades para {dependencia}/{subdependencia}.")
 
-        story.append(Paragraph("<b>Alcance de Iniciativas</b>", styles['Heading3']))
-        story.append(Spacer(1, 8))
-        story.append(Image(buffer_alcance, width=460, height=300))
-        story.append(Spacer(1, 20))
+        # === Alcance Territorial ===
+        if buffer_alcance:
+            story.append(Paragraph("<b>Alcance de Iniciativas</b>", styles['Heading3']))
+            story.append(Spacer(1, 8))
+            story.append(Image(buffer_alcance, width=460, height=300))
+            story.append(Spacer(1, 20))
+        else:
+            logs.append(f"⚠ No se pudo generar gráfico de alcance territorial para {dependencia}/{subdependencia}.")
 
         # === Gráficos Gantt ===
         if not buffer_gantt:
