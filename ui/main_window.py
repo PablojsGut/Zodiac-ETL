@@ -12,9 +12,10 @@ from scripts.iniciativas.graficos import generar_resumenes_pdf_vform
 from ui.ventana_modo import VentanaModoDivision
 from ui.ventana_dependencias import VentanaSeleccionDependencias
 from ui.ventana_jerarquica import VentanaSeleccionJerarquica
+from ui.zodiac import VentanaFiltroMes
+
 
 def resource_path(relative):
-    import sys, os
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative)
     return os.path.join(os.path.abspath("."), relative)
@@ -32,6 +33,14 @@ class RedirectPrint:
         pass
 
 
+ZODIAC_MONTHS = [
+    ("♒", "Enero"), ("♓", "Febrero"), ("♈", "Marzo"),
+    ("♉", "Abril"), ("♊", "Mayo"), ("♋", "Junio"),
+    ("♌", "Julio"), ("♍", "Agosto"), ("♎", "Septiembre"),
+    ("♏", "Octubre"), ("♐", "Noviembre"), ("♑", "Diciembre")
+]
+
+
 class AppGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
@@ -45,13 +54,17 @@ class AppGUI(ctk.CTk):
         self.title("Zodiac: Validador y Procesador de Archivo Excel")
         self.geometry("580x520")
 
-        # ---------------------------------------------
-        # 🔵 Selector de TIPO DE FORMULARIO
-        # ---------------------------------------------
-        self.label_tipo = ctk.CTkLabel(self, text="Seleccione el tipo de formulario:", font=("Arial", 15))
+        # ----------------------------------------------------
+        # Selector de formulario
+        # ----------------------------------------------------
+        self.label_tipo = ctk.CTkLabel(
+            self,
+            text="Seleccione el tipo de formulario:",
+            font=("Arial", 15)
+        )
         self.label_tipo.pack(pady=(10, 5))
 
-        self.tipo_formulario = ctk.StringVar(value="")  # ⚠ Comienza vacío
+        self.tipo_formulario = ctk.StringVar(value="")
 
         self.selector_formulario = ctk.CTkSegmentedButton(
             self,
@@ -67,9 +80,9 @@ class AppGUI(ctk.CTk):
         self.mensaje_formulario = ctk.CTkLabel(self, text="", font=("Arial", 12), text_color="green")
         self.mensaje_formulario.pack(pady=(5, 15))
 
-        # ---------------------------------------------
-        # Selección de archivo Excel
-        # ---------------------------------------------
+        # ----------------------------------------------------
+        # Selección Excel
+        # ----------------------------------------------------
         self.label = ctk.CTkLabel(self, text="Selecciona un archivo Excel", font=("Arial", 16))
         self.label.pack(pady=10)
 
@@ -77,18 +90,32 @@ class AppGUI(ctk.CTk):
             self,
             text="📂 Seleccionar Excel",
             command=self.seleccionar_archivo,
-            state="disabled"      # 🔒 Bloqueado hasta elegir formulario
+            state="disabled"
         )
         self.btn_seleccionar.pack(pady=10)
 
         self.label_ruta = ctk.CTkLabel(self, text="", font=("Arial", 12))
         self.label_ruta.pack(pady=10)
 
+        # ----------------------------------------------------
+        # Filtrar por mes  ➜ inicialmente desactivado
+        # ----------------------------------------------------
+        self.btn_filtro_meses = ctk.CTkButton(
+            self,
+            text="🔎 Filtrar por mes",
+            command=self.abrir_filtro_mes,
+            state="disabled"
+        )
+        self.btn_filtro_meses.pack(pady=10)
+
+        # ----------------------------------------------------
+        # Procesar Excel  ➜ desactivado hasta aplicar filtro
+        # ----------------------------------------------------
         self.btn_procesar = ctk.CTkButton(
             self,
             text="⚙️ Procesar Excel",
             command=self.abrir_modo_division,
-            state="disabled"      # 🔒 Solo si Excel válido
+            state="disabled"
         )
         self.btn_procesar.pack(pady=10)
 
@@ -97,398 +124,352 @@ class AppGUI(ctk.CTk):
 
         self.init_consola()
 
-        # Variables internas
+        # Internos
         self.ruta_archivo = None
-        self.df_validado = None  # ⚠️ Aquí guardamos el DF que entrega validar_excel
+        self.df_validado = None
+        self.filtro_meses = None
 
-    # ---------------------------------------------------------
-    # Mensaje del formulario seleccionado
-    # ---------------------------------------------------------
+    # ----------------------------------------------------
+    # Abrir filtro meses
+    # ----------------------------------------------------
+    def abrir_filtro_mes(self):
+        ventana = VentanaFiltroMes(self)
+
+        def esperar_cierre():
+            if ventana.winfo_exists():
+                self.after(100, esperar_cierre)
+            else:
+                if ventana.resultado:
+                    self.filtro_meses = ventana.resultado
+
+                    # 👉 AHORA SI activar procesar
+                    self.btn_procesar.configure(state="normal")
+
+                    modo = ventana.resultado.get("modo")
+                    if modo == "mes":
+                        mes = ventana.resultado["mes"]
+                        if mes == "todo":
+                            texto = f"Filtro: todo el año {ventana.resultado['anio']}"
+                        else:
+                            texto = f"Filtro: {mes} {ventana.resultado['anio']}"
+                    else:
+                        texto = f"Filtro: {ventana.resultado['inicio']} → {ventana.resultado['fin']} ({ventana.resultado['anio']})"
+
+                    self.label_resultado.configure(text=texto, text_color="blue")
+
+        esperar_cierre()
+
+    # ----------------------------------------------------
+    # Mensaje selector formulario
+    # ----------------------------------------------------
     def mostrar_mensaje_formulario(self, seleccion):
         self.reiniciar_interfaz()
 
         if seleccion == "Formulario de Participaciones en Instancias Externas":
-            msg = ("Importe los datos del formulario 'Registro simplificado de participaciones "
-                   "en instancias externas' extraídos de Microsoft Form")
+            txt = "Importe datos del registro de participaciones en instancias externas (Microsoft Form)"
         else:
-            msg = ("Importe los datos de 'Iniciativas VcM' y 'Síntesis evaluativa de Iniciativas VcM' "
-                   "extraídos de VForm")
+            txt = "Importe datos de Iniciativas y Síntesis Evaluativa (VForm)"
 
-        self.mensaje_formulario.configure(text=msg)
+        self.mensaje_formulario.configure(text=txt)
 
-        # 🔓 Activa botón Seleccionar Excel
+        # Habilitar selección archivo
         self.btn_seleccionar.configure(state="normal")
 
-    # ---------------------------------------------------------
-    # 📂 Seleccionar archivo Excel
-    # ---------------------------------------------------------
+    # ----------------------------------------------------
+    # Seleccionar archivo Excel
+    # ----------------------------------------------------
     def seleccionar_archivo(self):
         tipo = self.tipo_formulario.get()
 
-        # ======================================================
-        # 🔵 FORMULARIO DE INSTANCIAS EXTERNAS -> 1 solo archivo
-        # ======================================================
+        # INSTANCIAS EXTERNAS
         if tipo == "Formulario de Participaciones en Instancias Externas":
+
             ruta = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
             if not ruta:
                 return
-            
+
             self.ruta_archivo = ruta
             self.label_ruta.configure(text=f"📄 Archivo seleccionado:\n{ruta}", text_color="green")
 
-            self.label_resultado.configure(text="⏳ Validando archivo...", text_color="orange")
+            self.label_resultado.configure(text="Validando archivo...", text_color="orange")
             self.update_idletasks()
 
             valido, df = controlador.validar_archivo_formulario(ruta, tipo)
 
             if valido:
                 self.df_validado = df
-                self.label_resultado.configure(text="✅ Archivo válido.", text_color="green")
-                self.btn_procesar.configure(state="normal")
+                self.label_resultado.configure(text="Archivo válido.", text_color="green")
+
+                # 👉 Activar filtro, NO procesar
+                self.btn_filtro_meses.configure(state="normal")
+                self.btn_procesar.configure(state="disabled")
+
             else:
                 self.df_validado = None
-                self.label_resultado.configure(text="❌ Archivo inválido.", text_color="red")
+                self.label_resultado.configure(text="Archivo inválido.", text_color="red")
+                self.btn_filtro_meses.configure(state="disabled")
                 self.btn_procesar.configure(state="disabled")
 
             return
 
-        # ======================================================
-        # 🟣 FORMULARIO INICIATIVAS VCM -> REQUIERE 2 ARCHIVOS
-        # ======================================================
+        # FORMULARIO VCM
         elif tipo == "Formulario de Iniciativas VcM":
-            # ---------- Seleccionar archivo de Iniciativas ---------
+
             ruta1 = filedialog.askopenfilename(
-                title="Selecciona el archivo de Iniciativas VcM",
+                title="Seleccione archivo de Iniciativas VcM",
                 filetypes=[("Excel files", "*.xlsx")]
             )
             if not ruta1:
                 return
 
-            self.ruta_iniciativas = ruta1
-
-            # ---------- Seleccionar archivo de Síntesis Evaluativa ---------
             ruta2 = filedialog.askopenfilename(
-                title="Selecciona el archivo de Síntesis Evaluativa",
+                title="Seleccione archivo de Síntesis Evaluativa",
                 filetypes=[("Excel files", "*.xlsx")]
             )
             if not ruta2:
                 return
 
+            self.ruta_iniciativas = ruta1
             self.ruta_sintesis = ruta2
 
-            # Mostrar ambos en el label
-            self.label_ruta.configure(text=(
-                f"📄 Iniciativas VcM:\n{ruta1}\n\n"
-                f"📄 Síntesis Evaluativa:\n{ruta2}"
-                ),
+            self.label_ruta.configure(
+                text=f"📄 Iniciativas:\n{ruta1}\n\n📄 Síntesis:\n{ruta2}",
                 text_color="green"
             )
 
-            # ============================
-            # 🔍 Validación de ambos
-            # ============================
-            self.label_resultado.configure(text="⏳ Validando archivos...", text_color="orange")
+            self.label_resultado.configure(text="Validando archivos...", text_color="orange")
             self.update_idletasks()
 
-            validado1, df1 = controlador.validar_archivo_formulario(ruta1, tipo, "columnas_vform1")
-            validado2, df2 = controlador.validar_archivo_formulario(ruta2, tipo, "columnas_vform2")
+            valid1, df1 = controlador.validar_archivo_formulario(ruta1, tipo, "columnas_vform1")
+            valid2, df2 = controlador.validar_archivo_formulario(ruta2, tipo, "columnas_vform2")
 
-            if validado1 and validado2:
-
-                # Guardamos AMBOS dataframes
-                self.df_iniciativas = df1
-                self.df_sintesis = df2
-
-                # También guardamos un diccionario unificado
-                self.df_validado = {
-                    "iniciativas": df1,
-                    "sintesis": df2
-                }
+            if valid1 and valid2:
+                self.df_validado = {"iniciativas": df1, "sintesis": df2}
 
                 self.label_resultado.configure(
-                    text="✅ Ambos archivos válidos.\nListos para procesar.",
+                    text="Archivos válidos. Seleccione filtro de meses.",
                     text_color="green"
                 )
-                self.btn_procesar.configure(state="normal")
+
+                # 👉 Activar filtro, NO Procesar
+                self.btn_filtro_meses.configure(state="normal")
+                self.btn_procesar.configure(state="disabled")
 
             else:
                 self.df_validado = None
                 self.label_resultado.configure(
-                    text="❌ Error validando los archivos.\nRevise que correspondan al formulario VcM.",
+                    text="Error validando archivos.",
                     text_color="red"
                 )
+                self.btn_filtro_meses.configure(state="disabled")
                 self.btn_procesar.configure(state="disabled")
 
-
-    # ---------------------------------------------------------
-    # ⚙️ Selección modo (dependencias / subdependencias)
-    # ---------------------------------------------------------
+    # ----------------------------------------------------
+    # Abrir ventana modo (dependencias o subdependencias)
+    # ----------------------------------------------------
     def abrir_modo_division(self):
         if self.df_validado is None:
-            self.label_resultado.configure(text="❌ No hay archivo válido cargado.", text_color="red")
             return
 
-        VentanaModoDivision(self, self.procesar_segun_modo)
+        VentanaModoDivision(self, self.procesar_segun_modo, self.tipo_formulario.get())
 
-    # ---------------------------------------------------------
-    # 🎯 PROCESAR usando DF validado
-    # ---------------------------------------------------------
+    # ----------------------------------------------------
+    # APLICAR FILTRO INTERNO
+    # ----------------------------------------------------
+    def aplicar_filtro_al_df(self, df: pd.DataFrame):
+
+        if df is None or not isinstance(df, pd.DataFrame):
+            return df
+
+        if not self.filtro_meses:
+            return df
+
+        datos = self.filtro_meses
+
+        tipo = self.tipo_formulario.get()
+        columna_fecha = "Hora de inicio" if tipo == "Formulario de Participaciones en Instancias Externas" else "Fecha de creación"
+
+        if columna_fecha not in df.columns:
+            return df
+
+        df2 = df.copy()
+        df2[columna_fecha] = pd.to_datetime(df2[columna_fecha], errors="coerce", dayfirst=True)
+
+        anio = datos.get("anio")
+        if anio is None:
+            return df
+
+        meses_dict = {mes: i + 1 for i, (_, mes) in enumerate(ZODIAC_MONTHS)}
+
+        if datos["modo"] == "mes":
+            mes = datos["mes"]
+            if mes == "todo":
+                return df2[df2[columna_fecha].dt.year == anio]
+            else:
+                m = meses_dict.get(mes)
+                return df2[
+                    (df2[columna_fecha].dt.year == anio) &
+                    (df2[columna_fecha].dt.month == m)
+                ]
+
+        else:
+            inicio_mes = datos["inicio"].split(" ", 1)[1]
+            fin_mes = datos["fin"].split(" ", 1)[1]
+
+            m1 = meses_dict[inicio_mes]
+            m2 = meses_dict[fin_mes]
+
+            return df2[
+                (df2[columna_fecha].dt.year == anio) &
+                (df2[columna_fecha].dt.month >= m1) &
+                (df2[columna_fecha].dt.month <= m2)
+            ]
+
+    # ----------------------------------------------------
+    # PROCESAR
+    # ----------------------------------------------------
     def procesar_segun_modo(self, modo):
         if self.df_validado is None:
             return
 
-        ruta_salida_base = filedialog.askdirectory(title="Selecciona carpeta base para exportar")
+        ruta_salida_base = filedialog.askdirectory(title="Seleccione carpeta de destino")
         if not ruta_salida_base:
-            self.label_resultado.configure(text="⚠️ Exportación cancelada.", text_color="orange")
             return
 
         tipo = self.tipo_formulario.get()
 
-        # =====================================================
-        # 🔵 FORMULARIO INSTANCIAS EXTERNAS
-        # =====================================================
+        # --------------------------------------------
+        # Participaciones en instancias externas
+        # --------------------------------------------
         if tipo == "Formulario de Participaciones en Instancias Externas":
 
-            df = self.df_validado
+            df = self.aplicar_filtro_al_df(self.df_validado)
 
             if modo == "dependencias":
-                dependencias = controlador.get_dependencias(df)
+                deps = controlador.get_dependencias(df)
                 VentanaSeleccionDependencias(
                     self,
-                    dependencias,
-                    lambda seleccion: self.exportar_dependencias(df, seleccion, ruta_salida_base)
+                    deps,
+                    lambda s: self.exportar_dependencias(df, s, ruta_salida_base)
                 )
 
-            else:  # subdependencias
-                subdependencias = controlador.get_subdependencias(df)
+            else:
+                subdeps = controlador.get_subdependencias(df)
                 VentanaSeleccionJerarquica(
                     self,
-                    subdependencias,
-                    lambda seleccion: self.exportar_subdependencias(df, seleccion, ruta_salida_base)
+                    subdeps,
+                    lambda s: self.exportar_subdependencias(df, s, ruta_salida_base)
                 )
 
-        # =====================================================
-        # 🟣 FORMULARIO INICIATIVAS VcM
-        # =====================================================
-        elif tipo == "Formulario de Iniciativas VcM":
-
-            df1 = self.df_validado["iniciativas"]
+        # --------------------------------------------
+        # Iniciativas VcM
+        # --------------------------------------------
+        else:
+            df1_raw = self.df_validado["iniciativas"]
             df2 = self.df_validado["sintesis"]
 
-            # ---------------------------
-            # 🔵 MODO DEPENDENCIAS VcM
-            # ---------------------------
-            if modo == "dependencias":
-                dependencias_vform = controlador.get_dependencias_vform(df1)
+            df1 = self.aplicar_filtro_al_df(df1_raw)
 
+            if modo == "dependencias":
+                deps = controlador.get_dependencias_vform(df1)
                 VentanaSeleccionDependencias(
                     self,
-                    dependencias_vform,
-                    lambda seleccion: self.exportar_dependencias_vform(df1, df2, seleccion, ruta_salida_base)
+                    deps,
+                    lambda s: self.exportar_dependencias_vform(df1, df2, s, ruta_salida_base)
                 )
 
-            # ---------------------------
-            # 🟣 NUEVO: MODO SUBDEPENDENCIAS VcM
-            # ---------------------------
             elif modo == "subdependencias":
-
-                subdependencias_vform = controlador.get_subdependencias_vform(df1)
-
+                subdeps = controlador.get_subdependencias_vform(df1)
                 VentanaSeleccionJerarquica(
                     self,
-                    subdependencias_vform,
-                    lambda seleccion: self.exportar_subdependencias_vform(df1, df2, seleccion, ruta_salida_base)
+                    subdeps,
+                    lambda s: self.exportar_subdependencias_vform(df1, df2, s, ruta_salida_base)
                 )
 
-    # ---------------------------------------------------------
-    # 🧱 Exportar dependencias
-    # ---------------------------------------------------------
-    def exportar_dependencias(self, df_dep, seleccionadas, ruta_salida_base):
-        """Usa el controlador central para procesar y exportar dependencias."""
-        self.label_resultado.configure(text="⏳ Exportando dependencias...", text_color="orange")
-        self.update_idletasks()
-
-        # ✅ Ahora se usa la función unificada del controlador
-        ruta_final, df_dependencias = controlador.procesar_excel_dependencias(
-            df_dep, ruta_salida_base, seleccionadas
-        )
-
-        if not ruta_final or not df_dependencias:
-            self.label_resultado.configure(text="❌ Error al exportar dependencias.", text_color="red")
+            # 🆕 NUEVO MODO: UNIÓN DE DATASETS
+            elif modo == "union":
+                # No hay selección de dependencias o subdependencias,
+                # se exporta la unión directamente.
+                self.exportar_union(df1, df2, ruta_salida_base)
+    # ----------------------------------------------------
+    # Exportar dependencias
+    # ----------------------------------------------------
+    def exportar_dependencias(self, df_dep, seleccionadas, ruta):
+        ruta_final, dfs = controlador.procesar_excel_dependencias(df_dep, ruta, seleccionadas)
+        if not ruta_final or not dfs:
+            self.label_resultado.configure(text="Error al exportar dependencias.", text_color="red")
             return
-        
-         # 🧾 Generar PDFs
-        pdfs_generados = generar_graficos_y_pdfs(
-            dfs_divididos=df_dependencias,
-            seleccionadas=seleccionadas,
-            modo="dependencias",
-            ruta_salida=ruta_final
+
+        pdfs = generar_graficos_y_pdfs(dfs, seleccionadas, "dependencias", ruta_final)
+
+        self.label_resultado.configure(
+            text=f"Dependencias exportadas. PDFs generados: {len(pdfs)}",
+            text_color="green"
         )
 
-        # ✅ Resultado final según retorno de generar_graficos_y_pdfs()
-        if pdfs_generados:
-            self.label_resultado.configure(
-                text=f"✅ Dependencias exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
-            )
-        else:
-            self.label_resultado.configure(
-                text=f"⚠️ Dependencias exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
-                text_color="orange"
-            )
+    def exportar_subdependencias(self, df_sub, seleccionadas, ruta):
+        ruta_final, dfs = controlador.procesar_excel_subdependencias(df_sub, ruta, seleccionadas)
+        if not ruta_final or not dfs:
+            self.label_resultado.configure(text="Error al exportar.", text_color="red")
+            return
 
-    def exportar_dependencias_vform(self, df1, df2, seleccionadas, ruta_salida_base):
-        """
-        Exporta dependencias VcM y además genera los PDFs con resumen,
-        usando la función optimizada generar_resumenes_pdf().
-        """
+        pdfs = generar_graficos_y_pdfs(dfs, seleccionadas, "subdependencias", ruta_final)
 
-        self.label_resultado.configure(text="⏳ Exportando dependencias VcM...", text_color="orange")
-        self.update_idletasks()
-
-        # Función central del controlador (tu flujo original)
-        ruta_final, df1_dependencias, df2_dependencias = controlador.get_excels_dependencias_vform(
-            df1, df2, ruta_salida_base, seleccionadas
+        self.label_resultado.configure(
+            text=f"Subdependencias exportadas. PDFs generados: {len(pdfs)}",
+            text_color="green"
         )
 
-        if ruta_final is None or df1_dependencias is None or df2_dependencias is None:
+    def exportar_dependencias_vform(self, df1, df2, seleccionadas, ruta):
+        ruta_final, d1, d2 = controlador.get_excels_dependencias_vform(df1, df2, ruta, seleccionadas)
+
+        if ruta_final is None:
+            self.label_resultado.configure(text="Error exportando VcM.", text_color="red")
+            return
+
+        pdfs = generar_resumenes_pdf_vform(d1, d2, seleccionadas, "dependencias", ruta_final)
+
+        self.label_resultado.configure(
+            text=f"Dependencias VcM exportadas. PDFs generados: {len(pdfs)}",
+            text_color="green"
+        )
+
+    def exportar_subdependencias_vform(self, df1, df2, seleccionadas, ruta):
+        ruta_final, d1, d2 = controlador.get_excels_subdependencias_vform(df1, df2, ruta, seleccionadas)
+
+        if ruta_final is None:
+            self.label_resultado.configure(text="Error exportando subdeps VcM.", text_color="red")
+            return
+
+        pdfs = generar_resumenes_pdf_vform(d1, d2, seleccionadas, "subdependencias", ruta_final)
+
+        self.label_resultado.configure(
+            text=f"Subdependencias VcM exportadas. PDFs generados: {len(pdfs)}",
+            text_color="green"
+        )
+
+    def exportar_union(self, df1, df2, ruta):
+        ruta_final = controlador.get_excels_union(df1, df2, ruta)
+
+        if ruta_final is None:
             self.label_resultado.configure(
-                text="❌ Error al exportar dependencias VcM.",
+                text="Error exportando dataset unificado.",
                 text_color="red"
             )
             return
 
-        # ==========================================================
-        # 🧾  GENERAR PDFs usando la función optimizada
-        # ==========================================================
-        pdfs_generados = generar_resumenes_pdf_vform(
-            dfs1=df1_dependencias,   # Igual que en exportar_dependencias()
-            dfs2=df2_dependencias,
-            seleccionadas=seleccionadas,
-            modo="dependencias",
-            ruta_salida=ruta_final
+        self.label_resultado.configure(
+            text=f"Dataset unificado exportado correctamente en:\n{ruta_final}",
+            text_color="green"
         )
 
-        # ==========================================================
-        # 🟩 Resultado final (mismo estilo que exportar_dependencias)
-        # ==========================================================
-        if pdfs_generados:
-            self.label_resultado.configure(
-                text=f"✅ Dependencias VcM exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
-            )
-        else:
-            self.label_resultado.configure(
-                text=f"⚠️ Dependencias VcM exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
-                text_color="orange"
-            )
-
-
-    # ---------------------------------------------------------
-    # 🧱 Exportar subdependencias
-    # ---------------------------------------------------------
-    def exportar_subdependencias(self, df_sub, seleccionadas, ruta_salida_base):
-        """Procesa y exporta subdependencias usando el controlador."""
-        self.label_resultado.configure(text="⏳ Exportando subdependencias...", text_color="orange")
-        self.update_idletasks()
-
-        ruta_final, df_subdependencias = controlador.procesar_excel_subdependencias(
-            df_sub, ruta_salida_base, seleccionadas
-        )
-
-        if not ruta_final or not df_subdependencias:
-            self.label_resultado.configure(text="❌ Error al exportar subdependencias.", text_color="red")
-            return
-
-        pdfs_generados = generar_graficos_y_pdfs(
-            dfs_divididos=df_subdependencias,
-            seleccionadas=seleccionadas,
-            modo="subdependencias",
-            ruta_salida=ruta_final
-        )
-
-        # ✅ Mostrar resultado
-        if pdfs_generados:
-            self.label_resultado.configure(
-                text=f"✅ Subdependencias exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
-            )
-        else:
-            self.label_resultado.configure(
-                text=f"⚠️ Subdependencias exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
-                text_color="orange"
-            )
-
-    def exportar_subdependencias_vform(self, df1, df2, seleccionadas, ruta_salida_base):
-        """Procesa y exporta subdependencias del formulario VcM."""
-        self.label_resultado.configure(text="⏳ Exportando subdependencias VcM...", text_color="orange")
-        self.update_idletasks()
-
-        # Llama al controlador
-        ruta_final, df1_subdependencias, df2_subdependencias = controlador.get_excels_subdependencias_vform(
-            df1, df2, ruta_salida_base, seleccionadas
-        )
-
-        # Validación
-        if ruta_final is None or df1_subdependencias is None or df2_subdependencias is None:
-            self.label_resultado.configure(text="❌ Error al exportar subdependencias VcM.", text_color="red")
-            return
-        
-        pdfs_generados = generar_resumenes_pdf_vform(
-            dfs1=df1_subdependencias,   # Igual que en exportar_dependencias()
-            dfs2=df2_subdependencias,
-            seleccionadas=seleccionadas,
-            modo="subdependencias",
-            ruta_salida=ruta_final
-        )
-
-        # ==========================================================
-        # 🟩 Resultado final (mismo estilo que exportar_dependencias)
-        # ==========================================================
-        if pdfs_generados:
-            self.label_resultado.configure(
-                text=f"✅ Dependencias VcM exportadas y {len(pdfs_generados)} PDF(s) generados.\n📁 Carpeta: {ruta_final}",
-                text_color="green"
-            )
-        else:
-            self.label_resultado.configure(
-                text=f"⚠️ Dependencias VcM exportadas, pero no se generaron PDFs.\n📁 Carpeta: {ruta_final}",
-                text_color="orange"
-            )
-
-    def reiniciar_interfaz(self):
-        """Restaura la interfaz al estado inicial, como cuando se abre la app."""
-
-        # Reset de variables internas
-        self.ruta_archivo = None
-        self.ruta_iniciativas = None
-        self.ruta_sintesis = None
-        self.df_validado = None
-
-        # Desactivar botones
-        self.btn_seleccionar.configure(state="disabled")
-        self.btn_procesar.configure(state="disabled")
-
-        # Limpiar labels
-        self.label_ruta.configure(text="", text_color="white")
-        self.label_resultado.configure(text="", text_color="white")
-        self.mensaje_formulario.configure(text="", text_color="green")
-
-        # Limpiar consola
-        self.consola_text.delete("1.0", "end")
-
-        # Cerrar consola si estaba abierta
-        if self.consola_abierta:
-            self.toggle_consola()
-
-
+    # ----------------------------------------------------
+    # Consola interna
+    # ----------------------------------------------------
     def init_consola(self):
-        """Crea una consola plegable para mostrar logs."""
-        # Marco contenedor
         self.consola_frame = ctk.CTkFrame(self)
         self.consola_frame.pack(fill="x", padx=10, pady=5)
 
-        # Botón plegable
         self.btn_toggle_consola = ctk.CTkButton(
             self.consola_frame,
             text="📜 Mostrar consola ▼",
@@ -498,12 +479,10 @@ class AppGUI(ctk.CTk):
         )
         self.btn_toggle_consola.pack(pady=5)
 
-        # Frame que se expande
         self.consola_content = ctk.CTkFrame(self.consola_frame)
         self.consola_content.pack(fill="x", expand=False)
-        self.consola_content.pack_forget()  # Oculto inicialmente
+        self.consola_content.pack_forget()
 
-        # Cuadro de texto
         self.consola_text = ctk.CTkTextbox(
             self.consola_content,
             width=520,
@@ -512,31 +491,48 @@ class AppGUI(ctk.CTk):
         )
         self.consola_text.pack(padx=10, pady=10)
 
-        # Redirigir print a la consola
         sys.stdout = RedirectPrint(self.log_to_console)
-
         self.consola_abierta = False
 
     def toggle_consola(self):
-        """Muestra u oculta la consola."""
         if self.consola_abierta:
             self.consola_content.pack_forget()
             self.btn_toggle_consola.configure(text="📜 Mostrar consola ▼")
-            self.consola_abierta = False
         else:
             self.consola_content.pack(fill="x")
             self.btn_toggle_consola.configure(text="📜 Ocultar consola ▲")
-            self.consola_abierta = True
+
+        self.consola_abierta = not self.consola_abierta
 
     def log_to_console(self, text):
-        """Escribe texto en la consola visual."""
         self.consola_text.insert("end", text)
         self.consola_text.see("end")
 
+    # ----------------------------------------------------
+    # Reiniciar interfaz
+    # ----------------------------------------------------
+    def reiniciar_interfaz(self):
+        self.ruta_archivo = None
+        self.df_validado = None
+        self.filtro_meses = None
 
-# ---------------------------------------------------------
-# 🚀 Lanzar aplicación
-# ---------------------------------------------------------
+        self.btn_seleccionar.configure(state="disabled")
+        self.btn_filtro_meses.configure(state="disabled")
+        self.btn_procesar.configure(state="disabled")
+
+        self.label_ruta.configure(text="")
+        self.label_resultado.configure(text="")
+        self.mensaje_formulario.configure(text="")
+
+        self.consola_text.delete("1.0", "end")
+
+        if self.consola_abierta:
+            self.toggle_consola()
+
+
+# ----------------------------------------------------
+# Lanzar App
+# ----------------------------------------------------
 def lanzar_app():
     app = AppGUI()
     app.mainloop()

@@ -426,6 +426,9 @@ def generar_grafico_ambitos(dataset):
             .str.strip()
         )
 
+        ambitos_expandidos = ambitos_expandidos[ambitos_expandidos != ""]
+        ambitos_expandidos = ambitos_expandidos.dropna()
+
         if ambitos_expandidos.empty:
             print(f"⚠ Sin datos para '{tipo}'")
             continue
@@ -554,6 +557,9 @@ def generar_grafico_ods(dataset):
             .explode()
             .str.strip()
         )
+
+        ods_expandidos = ods_expandidos[ods_expandidos != ""]
+        ods_expandidos = ods_expandidos.dropna()
 
         if ods_expandidos.empty:
             print(f"⚠ Sin datos ODS para '{tipo}'")

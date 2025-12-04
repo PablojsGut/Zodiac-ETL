@@ -36,13 +36,14 @@ def dividir_dependencias_vform(df: pd.DataFrame, col_dependencia: str = "Unidad 
     Divide el DataFrame según la columna de dependencia, normalizando valores,
     sin crear nuevas columnas, y eliminando columnas completamente vacías.
 
-    :param df: DataFrame original.
-    :param col_dependencia: Nombre de la columna que contiene la dependencia.
-    :return: Diccionario {dependencia: DataFrame}.
+    Retorna:
+      dfs_por_dependencia (dict)
     """
 
-    print(f"📊 DataFrame recibido: {df.shape[0]} filas – {df.shape[1]} columnas")
-    print(f"📌 Usando columna de dependencia: '{col_dependencia}'")
+    logs = []
+
+    logs.append(f"📊 DataFrame recibido: {df.shape[0]} filas – {df.shape[1]} columnas")
+    logs.append(f"📌 Usando columna de dependencia: '{col_dependencia}'")
 
     # --- 1. Normalizar dependencias ---
     dependencias_norm = (
@@ -52,14 +53,14 @@ def dividir_dependencias_vform(df: pd.DataFrame, col_dependencia: str = "Unidad 
         .apply(lambda x: x if x != "" else "EN BLANCO")
     )
 
-    # Valores únicos
     lista_dep = dependencias_norm.unique()
-    print(f"📂 Dependencias encontradas: {len(lista_dep)}")
+    logs.append(f"📂 Dependencias encontradas: {len(lista_dep)}")
 
     # --- 2. Crear un DF por dependencia ---
     dfs_por_dependencia = {}
 
-    print("\n🧱 Generando DataFrames por dependencia...")
+    logs.append("\n🧱 Generando DataFrames por dependencia...")
+
     for dep in lista_dep:
 
         # Filtrar usando la Serie normalizada
@@ -70,13 +71,19 @@ def dividir_dependencias_vform(df: pd.DataFrame, col_dependencia: str = "Unidad 
 
         columnas_eliminadas = df_dep.shape[1] - df_limpio.shape[1]
         if columnas_eliminadas > 0:
-            print(f"  - '{dep}': {columnas_eliminadas} columna(s) vacía(s) eliminada(s)")
+            logs.append(f"  - '{dep}': {columnas_eliminadas} columna(s) vacía(s) eliminada(s)")
+        else:
+            logs.append(f"  - '{dep}': Sin columnas vacías para eliminar")
 
         dfs_por_dependencia[dep] = df_limpio
 
-    print(f"\n✅ Se generaron {len(dfs_por_dependencia)} DataFrames (limpios) por dependencia.")
+    logs.append(f"\n✅ Se generaron {len(dfs_por_dependencia)} DataFrames limpios por dependencia.\n")
+
+    # 🔸 Mostrar logs en una sola impresión (como en tu otra función)
+    print("\n".join(logs))
 
     return dfs_por_dependencia
+
 
 
 def exportar_dependencias_vform(dfs1, df2, ruta_salida, seleccionadas=None):

@@ -9,6 +9,7 @@ from scripts.instancias_externas.subdependencias import dividir_por_subdependenc
 from scripts.iniciativas.validar_transformar import validar_excel_vform, limpiar_columnas_vform
 from scripts.iniciativas.dependencias import obtener_dependencias_vform, dividir_dependencias_vform, exportar_dependencias_vform
 from scripts.iniciativas.subdependencias import dividir_subdependencias_vform, exportar_subdependencias_vform
+from scripts.iniciativas.union import unir_dataset, exportar_union
 
 def validar_excel(ruta_excel: str):
     """
@@ -204,3 +205,40 @@ def get_excels_subdependencias_vform(df1: pd.DataFrame, df2: pd.DataFrame, ruta_
     except Exception as e:
         print(f"❌ Error durante el proceso ETL: {e}")
         return None, None, None
+    
+def get_excels_union(df1: pd.DataFrame, df2: pd.DataFrame, ruta_salida_base: str):
+    """Procesa, une y exporta el dataset combinado en un solo Excel."""
+
+    try:
+        print("🔗 Iniciando proceso de unión de datasets...")
+
+        # ================================
+        # 1️⃣ UNIR DATASETS
+        # ================================
+        print("📊 Realizando unión por columna 'ID'...")
+        df_unido = unir_dataset(df1, df2)
+
+        if df_unido is None:
+            print("❌ No se pudo generar la unión. Proceso detenido.")
+            return None, None, None
+
+        # ================================
+        # 2️⃣ CREAR CARPETA DE SALIDA
+        # ================================
+        fecha = datetime.now().strftime("%Y-%m-%d")
+        ruta_salida_final = os.path.join(ruta_salida_base, f"Union Dataset {fecha}")
+        os.makedirs(ruta_salida_final, exist_ok=True)
+
+        print(f"💾 Exportando dataset unificado en: {ruta_salida_final}")
+
+        # ================================
+        # 3️⃣ EXPORTAR EXCEL
+        # ================================
+        logs_export = exportar_union(df_unido, ruta_salida_final, nombre="Dataset_Unificado")
+
+        print("\n✅ Proceso ETL completado con éxito.")
+        return ruta_salida_final
+
+    except Exception as e:
+        print(f"❌ Error durante el proceso de unión: {e}")
+        return None
