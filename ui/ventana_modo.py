@@ -7,7 +7,7 @@ class VentanaModoDivision(ctk.CTkToplevel):
         super().__init__(master)
 
         self.title("Seleccionar modo de división")
-        self.geometry("420x260")
+        self.geometry("420x200")
         self.callback = callback
         self.tipo_formulario = tipo_formulario
 

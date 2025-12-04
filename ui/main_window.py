@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 import pandas as pd
 import os
 import sys
@@ -184,6 +184,11 @@ class AppGUI(ctk.CTk):
         # INSTANCIAS EXTERNAS
         if tipo == "Formulario de Participaciones en Instancias Externas":
 
+            messagebox.showinfo(
+                "Seleccione archivo",
+                "Debe seleccionar el archivo Excel del Formulario de Participaciones en Instancias Externas."
+            )
+
             ruta = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
             if not ruta:
                 return
@@ -200,7 +205,6 @@ class AppGUI(ctk.CTk):
                 self.df_validado = df
                 self.label_resultado.configure(text="Archivo válido.", text_color="green")
 
-                # 👉 Activar filtro, NO procesar
                 self.btn_filtro_meses.configure(state="normal")
                 self.btn_procesar.configure(state="disabled")
 
@@ -214,6 +218,11 @@ class AppGUI(ctk.CTk):
 
         # FORMULARIO VCM
         elif tipo == "Formulario de Iniciativas VcM":
+
+            messagebox.showinfo(
+                "Selección de archivos",
+                "Debe seleccionar primero el archivo de *Iniciativas VcM* y luego el archivo de *Síntesis Evaluativa*."
+            )
 
             ruta1 = filedialog.askopenfilename(
                 title="Seleccione archivo de Iniciativas VcM",
@@ -251,7 +260,6 @@ class AppGUI(ctk.CTk):
                     text_color="green"
                 )
 
-                # 👉 Activar filtro, NO Procesar
                 self.btn_filtro_meses.configure(state="normal")
                 self.btn_procesar.configure(state="disabled")
 
